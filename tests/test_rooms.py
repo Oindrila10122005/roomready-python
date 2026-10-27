@@ -4,7 +4,7 @@ from sqlalchemy import select
 
 from roomready.app import create_app
 from roomready.models import Housekeeper, Room, Stay
-from tests.conftest import P, checkout, make_settings, room
+from tests.conftest import P, assigned, checkout, make_settings, room
 
 
 def test_seeding_is_idempotent_across_two_starts(tmp_path, clock):
@@ -37,6 +37,10 @@ def test_nine_housekeepers_are_listed_with_the_room_each_is_on(client):
     assert r.status_code == 200
     staff = r.json()["housekeepers"]
     assert len(staff) == 9 and staff[0] == {"id": "HK01", "name": "Grace", "open_assignment": None}
+    assigned(client, "214", "HK03")
+    staff = client.get(f"{P}/housekeepers").json()["housekeepers"]
+    assert {h["id"]: h["open_assignment"] for h in staff}["HK03"] == "214"
+    assert all(h["open_assignment"] is None for h in staff if h["id"] != "HK03")
 
 
 def test_floor_and_state_filters_show_only_those_rooms_and_their_counts(client):
@@ -51,6 +55,13 @@ def test_floor_and_state_filters_show_only_those_rooms_and_their_counts(client):
     assert len(body["rooms"]) == 8 and all(x["type"] == "Suite" for x in body["rooms"])
     assert client.get(f"{P}/rooms?state=ready").json()["rooms"] == []
     assert client.get(f"{P}/rooms?state=out_of_order").json()["rooms"] == []
+
+
+def test_the_board_shows_who_is_on_a_room_and_for_how_long(client, clock):
+    assigned(client, "214", "HK03")
+    clock.advance(minutes=22)
+    body = client.get(f"{P}/rooms?state=assigned").json()
+    assert body["rooms"] == [{"no": "214", "floor": 2, "type": "Deluxe", "state": "assigned", "assigned_to": "Sunita", "since_minutes": 22}]
 
 
 def test_unknown_filter_values_are_400_not_an_empty_list(client):
