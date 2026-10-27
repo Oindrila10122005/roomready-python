@@ -1,6 +1,6 @@
-"""The board. A room's state is derived on read from its rows — the current stay and its latest assignment —
+"""The board. A room's state is derived on read from its rows — the current stay and its open assignment —
 never stored. `occupied` while the guest is in, `dirty` after checkout, `assigned` / `cleaning` / `toinspect` from
-the assignment's stamps, `out_of_order` over all."""
+the open assignment's stamps, `out_of_order` over all."""
 
 from dataclasses import dataclass
 from datetime import datetime
@@ -24,7 +24,7 @@ class View:
 
     room: Room
     stay: Stay | None
-    assignment: Assignment | None          #  and the latest one for the room, if any
+    assignment: Assignment | None          #  the open one (closed_at null), if any
     housekeeper: Housekeeper | None
     state: str
     since: datetime | None
@@ -64,7 +64,7 @@ def current_stay(session: Session, room: Room) -> Stay | None:
 
 
 def open_assignment(session: Session, room: Room) -> Assignment | None:
-    return session.scalar(select(Assignment).where(Assignment.room_id == room.id).order_by(Assignment.id.desc()).limit(1))
+    return session.scalar(select(Assignment).where(Assignment.room_id == room.id, Assignment.closed_at.is_(None)).order_by(Assignment.id.desc()).limit(1))
 
 
 def derive(room: Room, stay: Stay | None, assignment: Assignment | None) -> tuple[str, datetime | None]:
@@ -102,7 +102,7 @@ def views(session: Session, prop: Property) -> list[View]:
     stays: dict[int, Stay] = {}
     for stay in session.scalars(select(Stay).where(Stay.property_id == prop.id).order_by(Stay.id)):
         stays[stay.room_id] = stay                                        # the last one per room wins: the current stay
-    open_by_room = {a.room_id: a for a in session.scalars(select(Assignment).where(Assignment.property_id == prop.id).order_by(Assignment.id))}
+    open_by_room = {a.room_id: a for a in session.scalars(select(Assignment).where(Assignment.property_id == prop.id, Assignment.closed_at.is_(None)).order_by(Assignment.id))}
     staff = {h.id: h for h in session.scalars(select(Housekeeper).where(Housekeeper.property_id == prop.id))}
     out = []
     for room in rooms:
@@ -136,7 +136,7 @@ def housekeepers(session: Session, slug: str) -> HousekeepersOut:
     staff = session.scalars(select(Housekeeper).where(Housekeeper.property_id == prop.id).order_by(Housekeeper.code)).all()
     open_rooms: dict[int, str] = {}
     rows = session.execute(select(Assignment.housekeeper_id, Room.no).join(Room, Room.id == Assignment.room_id)
-                           .where(Assignment.property_id == prop.id).order_by(Assignment.id))
+                           .where(Assignment.property_id == prop.id, Assignment.closed_at.is_(None)).order_by(Assignment.id))
     for housekeeper_id, room_no in rows:
         open_rooms.setdefault(housekeeper_id, room_no)                   #  and one room at a time: the first still open
     return HousekeepersOut(housekeepers=[HousekeeperOut(id=h.code, name=h.name, open_assignment=open_rooms.get(h.id)) for h in staff])
