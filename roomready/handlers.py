@@ -1,5 +1,3 @@
-"""The one place errors become HTTP: every domain refusal and every validation failure leaves as
-application/problem+json from a handler installed here."""
 """Turning refusals into the answers the ticket promises."""
 
 from fastapi import FastAPI, Request
@@ -8,6 +6,7 @@ from fastapi.responses import JSONResponse
 
 from .errors import (
     FILTER,
+    VALIDATION,
     DomainError,
 )
 
@@ -26,8 +25,11 @@ def install_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(RequestValidationError)
     async def _validation(_request: Request, exc: RequestValidationError):
-        #  and A filter outside its enum is 400.
+        # A filter outside its enum is 400; a body that fails its constraints is 422. Same type, same shape.
         errors = [{"field": ".".join(str(p) for p in e["loc"] if p not in ("body", "query", "path")), "message": e["msg"]}
                   for e in exc.errors()]
+        if any(e["loc"] and e["loc"][0] == "body" for e in exc.errors()):
+            status, type_, title = VALIDATION
+            return problem(status, type_, title, f"{len(errors)} field(s) failed validation", errors=errors)
         status, type_, title = FILTER
         return problem(status, type_, title, f"{len(errors)} filter(s) invalid", errors=errors)

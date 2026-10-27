@@ -5,9 +5,10 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from .clock import get_clock
 from .db import init_db, make_engine, make_sessionmaker
 from .handlers import install_handlers
-from .routers import rooms
+from .routers import checkouts, rooms
 from .services.seed import seed
 from .settings import Settings
 
@@ -20,8 +21,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         init_db(engine)
+        clock = app.dependency_overrides.get(get_clock, get_clock)()      # the same clock the routes see
         with app.state.sessionmaker() as session:
-            seed(session, settings.seed_dir)
+            seed(session, settings.seed_dir, clock)
         yield
         engine.dispose()
 
@@ -29,7 +31,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.sessionmaker = make_sessionmaker(engine)
 
     install_handlers(app)
-    for r in (rooms.router,):
+    for r in (rooms.router, checkouts.router):
         app.include_router(r)
 
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
