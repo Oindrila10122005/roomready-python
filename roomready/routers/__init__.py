@@ -1,4 +1,4 @@
-"""Helpers shared by the routes."""
+"""One router per resource. Helpers shared by the routes."""
 
 from typing import Annotated
 
