@@ -98,3 +98,6 @@ class InspectOut(BaseModel):
     inspected_by: str
     result: Result
     state: RoomState
+    ready_at: UtcZ | None = None
+    arrival_at: UtcZ | None = None
+    margin_minutes: int | None = None
