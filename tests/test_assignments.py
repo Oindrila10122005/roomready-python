@@ -1,6 +1,6 @@
 from roomready.db import get_session
 from roomready.models import Assignment
-from tests.conftest import assign, assigned, checkout, room
+from tests.conftest import P, assign, assigned, checkout, room
 
 
 def test_a_dirty_room_is_assigned_and_shows_assigned(client, clock):
@@ -25,7 +25,8 @@ def test_start_then_finish_thirty_six_minutes_later_stores_thirty_six(client, cl
     clock.advance(hours=3)
     with db() as s:
         assert s.get(Assignment, 1).clean_minutes == 36, "stored at finish, not recomputed on read"
-    assert room(client, "214")["since_minutes"] == 180
+    finished = [e for e in client.get(f"{P}/rooms/214/history").json()["events"] if e["kind"] == "finished"]
+    assert finished[0]["clean_minutes"] == 36 and room(client, "214")["since_minutes"] == 180
 
 
 def test_clean_minutes_are_whole_minutes_rounded_down(client, clock):
@@ -71,7 +72,6 @@ def test_the_clock_is_the_overridden_dependency(client, clock):
     clock.advance(hours=1, minutes=5)
     checkout(client, "215", at="2026-09-28T11:45:00Z")
     assert assign(client, "215", "HK04").json()["assigned_at"] == "2026-09-28T11:45:00Z", "the stamp moved with the injected clock"
-
 
 
 def test_the_session_is_a_dependency_a_test_can_override(app, client, db):
