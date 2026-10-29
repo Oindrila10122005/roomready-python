@@ -10,7 +10,7 @@ PKG = Path(__file__).resolve().parent.parent / "roomready"
 TAG = {"/properties/{property}/rooms": "rooms", "/properties/{property}/rooms/{no}": "rooms",
        "/properties/{property}/rooms/{no}/history": "rooms", "/properties/{property}/housekeepers": "rooms",
        "/checkouts": "checkouts", "/assignments": "assignments", "/assignments/{assignment_id}/start": "assignments",
-       "/assignments/{assignment_id}/finish": "assignments", "/inspections": "inspections"}
+       "/assignments/{assignment_id}/finish": "assignments", "/inspections": "inspections", "/settings": "settings"}
 
 
 
