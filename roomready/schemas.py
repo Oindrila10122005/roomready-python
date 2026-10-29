@@ -131,3 +131,9 @@ class HistoryOut(BaseModel):
 class SettingsOut(BaseModel):
     inspection_required_for: list[RoomType]
     stall_after_minutes: int
+
+
+
+
+class HealthOut(BaseModel):
+    status: Literal["ok"]
