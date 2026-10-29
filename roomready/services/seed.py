@@ -2,14 +2,17 @@
 its current guest. Idempotent: a second start changes nothing."""
 
 import csv
+import logging
 from datetime import timedelta
 from pathlib import Path
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..clock import Clock
 from ..models import Housekeeper, Property, Room, Stay
+
+log = logging.getLogger("roomready.seed")
 
 PROPERTY = ("harbour-view", "Harbour View")
 
@@ -35,3 +38,6 @@ def seed(session: Session, seed_dir: str, clock: Clock) -> None:
         for room in session.scalars(select(Room).where(Room.property_id == prop.id)):
             session.add(Stay(property_id=prop.id, room_id=room.id, guest_ref=f"BK-{room.no}-1", checked_in_at=checked_in))
     session.commit()
+    rooms = session.scalar(select(func.count()).select_from(Room).where(Room.property_id == prop.id))
+    staff = session.scalar(select(func.count()).select_from(Housekeeper).where(Housekeeper.property_id == prop.id))
+    log.info("seed complete property=%s rooms=%s housekeepers=%s", prop.slug, rooms, staff)
